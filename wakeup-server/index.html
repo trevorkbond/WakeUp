@@ -4,53 +4,100 @@
 <h2>Read the Scripture to Stop Alarm</h2>
 <h3 id="challengeTitle"></h3>
 <p id="challengeText"></p>
-<button onclick="start()">Start Listening</button>
+
+<button onclick="startRecording()">Start Recording</button>
+<button onclick="stopRecording()">Stop Recording</button>
+
+<p>Live Transcript: <span id="live"></span></p>
+
 <script>
 function wordSimilarity(recResult, challengeText) {
-  const recWords = recResult.toLowerCase().split(/\s+/);
-  const challengeWords = challengeText.toLowerCase().split(/\s+/).replace(/[^a-zA-z']/g, '');
-  let matchCount = 0;
-  recWords.forEach(word => {
-    if (challengeWords.includes(word)) {
-      matchCount++;
-    }
-  });
-  return matchCount / challengeWords.length;
+  const recWords = recResult.toLowerCase().trim().split(/\s+/).filter(w => w.length > 0);
+  const challengeWords = challengeText
+      .toLowerCase()
+      .replace(/[^a-zA-Z\s']/g, '')
+      .trim()
+      .split(/\s+/)
+      .filter(w => w.length > 0);
+
+  const matches = recWords.filter(word => challengeWords.includes(word));
+  return challengeWords.length === 0 ? 0 : matches.length / challengeWords.length;
 }
 
-let fullTranscript = ""; // Keeps all recognized speech
+let fullTranscript = "";
+let recognition = null;
+let shouldContinue = false;
 
-function start() {
-  const rec = new webkitSpeechRecognition();
+function createRecognition() {
+  const rec = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
   rec.continuous = true;
   rec.interimResults = true;
   rec.lang = "en-US";
 
-  rec.onresult = (event) => {  
+  rec.onresult = (event) => {
+    let interim = "";
     for (let i = event.resultIndex; i < event.results.length; i++) {
-      const transcriptPart = event.results[i][0].transcript;
-      
+      const transcript = event.results[i][0].transcript;
       if (event.results[i].isFinal) {
-        fullTranscript += transcriptPart + " ";
+        fullTranscript += transcript + " ";
+      } else {
+        interim += transcript;
       }
     }
-
-    console.clear();
-    console.log("Full transcript:", fullTranscript);
+    document.getElementById("live").innerHTML = fullTranscript + '<span style="color:#888;">' + interim + '</span>';
   };
 
   rec.onerror = (event) => {
-    console.log("Error:", event.error);
-    if (event.error !== "aborted") {
-      rec.start();
+    console.log("Speech error:", event.error);
+    if (event.error !== "aborted" && shouldContinue) {
+      setTimeout(startRecognition, 100);
     }
   };
 
   rec.onend = () => {
-    rec.start();
+    if (shouldContinue) {
+      startRecognition();
+    }
   };
 
-  rec.start();
+  return rec;
+}
+
+function startRecognition() {
+  if (recognition) recognition.abort();
+  recognition = createRecognition();
+  recognition.start();
+}
+
+function startRecording() {
+  fullTranscript = "";
+  document.getElementById("live").innerHTML = "";
+  shouldContinue = true;
+  startRecognition();
+}
+
+function stopRecording() {
+  shouldContinue = false;
+  if (recognition) {
+    recognition.stop();
+  }
+  setTimeout(checkTranscript, 800);
+}
+
+function checkTranscript() {
+  fullTranscript = fullTranscript.trim();
+  const challengeText = document.getElementById("challengeText").innerText;
+  const similarity = wordSimilarity(fullTranscript, challengeText);
+
+  console.log("Full transcript:", fullTranscript);
+  console.log("Similarity:", similarity);
+
+  if (similarity > 0.4 || Math.abs(challengeText.length - fullTranscript.length) < 25) {
+    fetch("/stop", { method: "POST" });
+    alert("Alarm Stopped!");
+  } else {
+    alert("Not close enough. Keep trying!");
+  }
 }
 
 async function fetchChallenge() {
