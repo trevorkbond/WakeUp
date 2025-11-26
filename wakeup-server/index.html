@@ -61,7 +61,12 @@ async function fetchChallenge() {
   document.getElementById("challengeText").innerText = challenge.text;
 }
 
+function snoozeAlarm() {
+  fetch("/snooze", { method: "POST" });
+}
+
 fetchChallenge();
+snoozeAlarm();
 </script>
 </body>
 </html>

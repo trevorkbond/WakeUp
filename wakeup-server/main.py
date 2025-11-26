@@ -1,6 +1,8 @@
 # main.py
 import pygame
 import requests
+import threading
+import time
 from fastapi import FastAPI
 from fastapi import Request
 from fastapi.responses import FileResponse
@@ -20,18 +22,31 @@ pygame.mixer.music.play()
 app = FastAPI()
 challenge_getter: ChallengeGetter = ScriptureChallengeGetter()
 
-
-@app.post("/start")
-async def start_alarm():
+def start_alarm():
     if not pygame.mixer.music.get_busy():
         pygame.mixer.music.load(ALARM_PATH)
         pygame.mixer.music.play()
-    return {"message": "Started alarm"}
 
-@app.post("/stop")
-async def stop_alarm():
+def stop_alarm():
     if pygame.mixer.music.get_busy():
         pygame.mixer.music.stop()
+
+def schedule_alarm(delay):
+    def alarm_thread():
+        time.sleep(delay)
+        start_alarm()
+    threading.Thread(target=alarm_thread).start()
+
+
+@app.post("/snooze")
+async def snooze_alarm():
+    schedule_alarm(5 * 60)
+    stop_alarm()
+    return {"message": "Snoozed alarm for 5 minutes"}
+
+@app.post("/stop")
+async def stop():
+    stop_alarm()
     return {"message": "Stopped alarm"}
 
 @app.post("/speech")
