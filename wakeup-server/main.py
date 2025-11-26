@@ -5,15 +5,21 @@ from fastapi import FastAPI
 from fastapi import Request
 from fastapi.responses import FileResponse
 
+from challenge.challenge_getter import ChallengeGetter
+from challenge.scripture_challenge_getter import ScriptureChallengeGetter
+
 ALARM_PATH = "../alarm/alarm.mp3"
-WEBHOOK_URL = ""
-with open("webhook_url.txt", "r") as f:
-    WEBHOOK_URL = f.read().strip()
+# WEBHOOK_URL = ""
+# with open("webhook_url.txt", "r") as f:
+#     WEBHOOK_URL = f.read().strip()
+# requests.post(WEBHOOK_URL)
 
 pygame.mixer.init()
+pygame.mixer.music.load(ALARM_PATH)
+pygame.mixer.music.play()
 app = FastAPI()
+challenge_getter: ChallengeGetter = ScriptureChallengeGetter()
 
-requests.post(WEBHOOK_URL)
 
 @app.post("/start")
 async def start_alarm():
@@ -33,6 +39,11 @@ async def check_speech(request: Request):
     data = await request.json() 
     text = data.get("text", "")
     print(text)
+
+@app.get("/challenge")
+def get_challenge():
+    challenge = challenge_getter.get_challenge()
+    return {"challenge": challenge}
 
 @app.get("/")
 def read_index():

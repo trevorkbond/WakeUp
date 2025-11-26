@@ -2,40 +2,66 @@
 <html>
 <body>
 <h2>Read the Scripture to Stop Alarm</h2>
+<h3 id="challengeTitle"></h3>
+<p id="challengeText"></p>
 <button onclick="start()">Start Listening</button>
 <script>
+function wordSimilarity(recResult, challengeText) {
+  const recWords = recResult.toLowerCase().split(/\s+/);
+  const challengeWords = challengeText.toLowerCase().split(/\s+/).replace(/[^a-zA-z']/g, '');
+  let matchCount = 0;
+  recWords.forEach(word => {
+    if (challengeWords.includes(word)) {
+      matchCount++;
+    }
+  });
+  return matchCount / challengeWords.length;
+}
+
+let fullTranscript = ""; // Keeps all recognized speech
+
 function start() {
   const rec = new webkitSpeechRecognition();
-  rec.continuous = false; // Changed to false due to potential bugs in Safari
+  rec.continuous = true;
   rec.interimResults = true;
   rec.lang = "en-US";
 
-  rec.onresult = async (event) => {
-    const text = event.results[event.results.length - 1][0].transcript;
-    fetch("/speech", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ text })
-    });
-    // Restart recognition after each result to simulate continuous listening
-    rec.start();
+  rec.onresult = (event) => {  
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const transcriptPart = event.results[i][0].transcript;
+      
+      if (event.results[i].isFinal) {
+        fullTranscript += transcriptPart + " ";
+      }
+    }
+
+    console.clear();
+    console.log("Full transcript:", fullTranscript);
   };
 
   rec.onerror = (event) => {
-    console.log('Error:', event.error);
-    // Optionally restart on error if appropriate
-    if (event.error !== 'aborted') {
+    console.log("Error:", event.error);
+    if (event.error !== "aborted") {
       rec.start();
     }
   };
 
   rec.onend = () => {
-    // Restart recognition when it ends to keep listening
     rec.start();
   };
 
   rec.start();
 }
+
+async function fetchChallenge() {
+  const response = await fetch("/challenge");
+  const data = await response.json();
+  const challenge = JSON.parse(data.challenge);
+  document.getElementById("challengeTitle").innerText = challenge.reference;
+  document.getElementById("challengeText").innerText = challenge.text;
+}
+
+fetchChallenge();
 </script>
 </body>
 </html>
