@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<body>
+<h2>Read the Scripture to Stop Alarm</h2>
+<button onclick="start()">Start Listening</button>
+<script>
+function start() {
+  const rec = new webkitSpeechRecognition();
+  rec.continuous = false; // Changed to false due to potential bugs in Safari
+  rec.interimResults = true;
+  rec.lang = "en-US";
+
+  rec.onresult = async (event) => {
+    const text = event.results[event.results.length - 1][0].transcript;
+    fetch("/speech", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ text })
+    });
+    // Restart recognition after each result to simulate continuous listening
+    rec.start();
+  };
+
+  rec.onerror = (event) => {
+    console.log('Error:', event.error);
+    // Optionally restart on error if appropriate
+    if (event.error !== 'aborted') {
+      rec.start();
+    }
+  };
+
+  rec.onend = () => {
+    // Restart recognition when it ends to keep listening
+    rec.start();
+  };
+
+  rec.start();
+}
+</script>
+</body>
+</html>
