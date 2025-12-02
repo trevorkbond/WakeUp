@@ -95,4 +95,5 @@ def get_challenge():
 def read_index():
     return FileResponse("index.html")
 
+time.sleep(10)
 start_alarm()
